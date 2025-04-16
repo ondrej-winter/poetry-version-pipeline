@@ -8,27 +8,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Poll until lock is released (max 5 minutes)
-        id: wait-for-unlock
         run: |
-          echo "Starting lock check loop..."
+          MAX_RETRIES=10
+          DELAY=30
+          COUNT=1
+
+          while [ $COUNT -le $MAX_RETRIES ]; do
+            echo "Attempt $COUNT: Checking if lock is free..."
+
+            LOCKED=$(gh workflow run github/lock@v2 \
+              --with github_token=${{ secrets.GITHUB_TOKEN }} \
+              --with environment=release \
+              --with check=true \
+              --with continue-on-error=true || echo "true")
+
+            if [ "$LOCKED" != "true" ]; then
+              echo "Lock is free. Proceeding."
+              exit 0
+            fi
+
+            echo "Still locked. Waiting $DELAY seconds..."
+            sleep $DELAY
+            COUNT=$((COUNT + 1))
+          done
+
+          echo "Timeout: Lock still active after $MAX_RETRIES attempts."
+          exit 1
         shell: bash
-
-      - name: Check lock in loop
-        uses: github/lock@v2
-        with:
-          environment: release
-          check: true
-          continue-on-error: true
-        id: lock-check
-
-      - name: Handle lock status
-        run: |
-          if [[ "${{ steps.lock-check.outputs.locked }}" == "true" ]]; then
-            echo "Still locked, waiting..."
-            exit 1
-          else
-            echo "Lock is free. Continuing."
-            exit 0
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
