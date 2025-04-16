@@ -1,6 +1,6 @@
 [project]
 name = "poetry-version-pipeline"
-version = "1.1"
+version = "1.2"
 description = "Debug poetry version pipeline"
 authors = [{ name = "Ondrej Winter", email = "ondrej.winter@gmail.com" }]
 readme = "README.md"
