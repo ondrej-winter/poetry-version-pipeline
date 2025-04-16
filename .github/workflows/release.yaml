@@ -1,0 +1,78 @@
+name: Release and Publish Docker
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Bump Poetry version
+        id: bump_version
+        run: |
+          BASE_BRANCH=origin/master
+          PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          COMMITS=$(git log $BASE_BRANCH..$PR_BRANCH --pretty=format:%s)
+
+          echo "Commit messages between $BASE_BRANCH and $PR_BRANCH:"
+          echo "$COMMITS"
+
+          if echo "$COMMITS" | grep -q "\[MAJOR\]"; then
+            VERSION_BUMP="major"
+          else
+            VERSION_BUMP="minor"
+          fi
+
+          NEW_VERSION=$(poetry version $VERSION_BUMP -s)
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped $VERSION_BUMP version to $NEW_VERSION"
+
+      - name: Commit new version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version to v${{ steps.bump_version.outputs.NEW_VERSION }} [skip ci]"
+          git tag v${{ steps.bump_version.outputs.NEW_VERSION }}
+          git push --follow-tags
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.NEW_VERSION }} .
+          docker tag ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.NEW_VERSION }} ghcr.io/${{ github.repository }}:latest
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push Docker Image
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.NEW_VERSION }}
+          docker push ghcr.io/${{ github.repository }}:latest
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.bump_version.outputs.NEW_VERSION }}
+          name: Release v${{ steps.bump_version.outputs.NEW_VERSION }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
