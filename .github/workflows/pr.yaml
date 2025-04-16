@@ -1,0 +1,40 @@
+name: Wait for Lock to Clear
+
+on:
+  pull_request:
+
+jobs:
+  wait-for-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll until lock is released (max 5 minutes)
+        id: wait-for-unlock
+        run: |
+          MAX_ATTEMPTS=10
+          SLEEP_SECONDS=30
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT: Checking if lock is free..."
+
+            gh workflow run lock-check.yaml -f environment=release --ref ${{ github.ref }}
+            sleep 5  # Let the workflow initialize
+
+            gh run list --workflow=lock-check.yaml --limit=1 --json conclusion -q '.[0].conclusion' > result.txt
+            STATUS=$(cat result.txt)
+
+            if [[ "$STATUS" == "success" ]]; then
+              echo "Lock is free. Continuing."
+              exit 0
+            fi
+
+            echo "Still locked, waiting $SLEEP_SECONDS seconds..."
+            sleep $SLEEP_SECONDS
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "Timeout reached. Lock is still active."
+          exit 1
+
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
