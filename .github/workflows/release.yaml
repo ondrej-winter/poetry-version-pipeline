@@ -34,7 +34,7 @@ jobs:
         id: bump_version
         run: |
           BASE_BRANCH=origin/master
-          PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          PR_BRANCH=HEAD
           COMMITS=$(git --no-pager log $BASE_BRANCH..$PR_BRANCH --pretty=format:%s)
 
           echo "Commit messages between $BASE_BRANCH and $PR_BRANCH:"
