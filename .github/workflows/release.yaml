@@ -35,7 +35,7 @@ jobs:
         run: |
           BASE_BRANCH=origin/master
           PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          COMMITS=$(git log $BASE_BRANCH..$PR_BRANCH --pretty=format:%s)
+          COMMITS=$(git --no-pager log $BASE_BRANCH..$PR_BRANCH --pretty=format:%s)
 
           echo "Commit messages between $BASE_BRANCH and $PR_BRANCH:"
           echo "$COMMITS"
