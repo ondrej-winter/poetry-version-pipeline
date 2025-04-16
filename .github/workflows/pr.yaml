@@ -10,32 +10,25 @@ jobs:
       - name: Poll until lock is released (max 5 minutes)
         id: wait-for-unlock
         run: |
-          MAX_ATTEMPTS=10
-          SLEEP_SECONDS=30
-          ATTEMPT=1
-          LOCKED=false
+          echo "Starting lock check loop..."
+        shell: bash
 
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Attempt $ATTEMPT: Checking if lock is free..."
+      - name: Check lock in loop
+        uses: github/lock@v2
+        with:
+          environment: release
+          check: true
+          continue-on-error: true
+        id: lock-check
 
-            gh api \
-              -X POST \
-              -H "Accept: application/vnd.github+json" \
-              /repos/${{ github.repository }}/actions/workflows/lock-check.yaml/dispatches \
-              -f ref=${{ github.ref }} \
-              -f inputs.environment=release || LOCKED=true
-
-            if [ "$LOCKED" != "true" ]; then
-              echo "Lock is free. Continuing."
-              exit 0
-            fi
-
-            echo "Still locked, waiting $SLEEP_SECONDS seconds..."
-            sleep $SLEEP_SECONDS
-            ATTEMPT=$((ATTEMPT + 1))
-          done
-
-          echo "Timeout reached. Lock is still active."
-          exit 1
+      - name: Handle lock status
+        run: |
+          if [[ "${{ steps.lock-check.outputs.locked }}" == "true" ]]; then
+            echo "Still locked, waiting..."
+            exit 1
+          else
+            echo "Lock is free. Continuing."
+            exit 0
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
