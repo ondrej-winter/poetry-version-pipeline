@@ -18,3 +18,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           environment: ${{ github.event.inputs.environment }}
           check: true
+          continue-on-error: true

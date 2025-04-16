@@ -13,17 +13,19 @@ jobs:
           MAX_ATTEMPTS=10
           SLEEP_SECONDS=30
           ATTEMPT=1
+          LOCKED=false
 
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             echo "Attempt $ATTEMPT: Checking if lock is free..."
 
-            gh workflow run lock-check.yaml -f environment=release --ref ${{ github.ref }}
-            sleep 5  # Let the workflow initialize
+            gh api \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              /repos/${{ github.repository }}/actions/workflows/lock-check.yaml/dispatches \
+              -f ref=${{ github.ref }} \
+              -f inputs.environment=release || LOCKED=true
 
-            gh run list --workflow=lock-check.yaml --limit=1 --json conclusion -q '.[0].conclusion' > result.txt
-            STATUS=$(cat result.txt)
-
-            if [[ "$STATUS" == "success" ]]; then
+            if [ "$LOCKED" != "true" ]; then
               echo "Lock is free. Continuing."
               exit 0
             fi
@@ -35,6 +37,5 @@ jobs:
 
           echo "Timeout reached. Lock is still active."
           exit 1
-
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
