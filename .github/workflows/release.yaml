@@ -18,6 +18,12 @@ jobs:
       packages: write
 
     steps:
+      - name: Acquire Deployment Lock
+        uses: github/lock@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          environment: release
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -34,7 +40,7 @@ jobs:
         id: bump_version
         run: |
           BASE_BRANCH=origin/master
-          PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          PR_BRANCH=HEAD
           COMMITS=$(git --no-pager log $BASE_BRANCH..$PR_BRANCH --pretty=format:%s)
 
           echo "Commit messages between $BASE_BRANCH and $PR_BRANCH:"
@@ -84,3 +90,11 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Release Deployment Lock
+        if: always()
+        uses: github/lock@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          environment: release
+          unlock: true
