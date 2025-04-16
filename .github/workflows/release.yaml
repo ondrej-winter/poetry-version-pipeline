@@ -1,5 +1,9 @@
 name: Release and Publish Docker
 
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
 on:
   push:
     branches:
